@@ -7,7 +7,13 @@ const NAV = [
   { label: "Credentials", href: "https://learn.microsoft.com/en-us/credentials/" },
 ];
 
-export function LearnShell({ children }: { children: ReactNode }) {
+export function LearnShell({
+  children,
+  breadcrumbCurrentLabel = "AI Guide (local)",
+}: {
+  children: ReactNode;
+  breadcrumbCurrentLabel?: string;
+}) {
   return (
     <div className="learn-app">
       <a className="learn-skip" href="#learn-main">
@@ -44,7 +50,7 @@ export function LearnShell({ children }: { children: ReactNode }) {
               </a>
             </li>
             <li aria-hidden>/</li>
-            <li aria-current="page">AI Guide (local)</li>
+            <li aria-current="page">{breadcrumbCurrentLabel}</li>
           </ol>
         </div>
       </div>
