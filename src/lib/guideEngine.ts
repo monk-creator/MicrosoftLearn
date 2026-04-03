@@ -56,6 +56,11 @@ export interface GuideState {
 }
 
 const INITIAL_STATE: GuideState = { consecutiveClarifications: 0 };
+const SOURCE_HOME = "Microsoft Learn: Build with answers in reach";
+
+function withSource(text: string, source: string = SOURCE_HOME): string {
+  return `${text}\n\nSource: ${source}`;
+}
 
 function tokenize(text: string): string[] {
   return text
@@ -104,7 +109,7 @@ function detectOutOfScope(message: string): { type: string; resource: string } |
   ) {
     return {
       type: "code or debugging help",
-      resource: "https://stackoverflow.com/ or your product’s developer documentation on Microsoft Learn",
+      resource: "https://learn.microsoft.com/en-us/answers/",
     };
   }
 
@@ -116,7 +121,7 @@ function detectOutOfScope(message: string): { type: string; resource: string } |
   ) {
     return {
       type: "Azure billing or account issues",
-      resource: "https://azure.microsoft.com/support/options/",
+      resource: "https://learn.microsoft.com/en-us/answers/",
     };
   }
 
@@ -139,7 +144,7 @@ function detectOutOfScope(message: string): { type: string; resource: string } |
 
 function topChunks(message: string, n: number): { chunk: LearnChunk; score: number }[] {
   const ranked = CHUNKS.map((chunk) => ({ chunk, score: scoreChunk(message, chunk) }))
-    .filter((x) => x.score > 0)
+    .filter((x) => x.score > 0 && x.chunk.contentType !== "Browse hub")
     .sort((a, b) => b.score - a.score);
   return ranked.slice(0, n);
 }
@@ -147,18 +152,15 @@ function topChunks(message: string, n: number): { chunk: LearnChunk; score: numb
 function formatRecommendation(chunk: LearnChunk, userSnippet: string): string {
   const next = chunk.nextIds.map((id) => getChunkById(id)).find(Boolean) as LearnChunk | undefined;
   const nextLine = next
-    ? `4. **Suggested next step after this:** [${next.title}](${next.url})`
-    : "4. **Suggested next step after this:** Explore related modules on the same topic in [Browse all training](https://learn.microsoft.com/en-us/training/browse/).";
+    ? `4. Suggested next step after this course: ${next.title} — ${next.url}`
+    : `4. Suggested next step after this course: Explore related modules on the same topic in https://learn.microsoft.com/en-us/training/browse/.`;
 
-  const why =
-    chunk.contentType === "Browse hub"
-      ? `2. **Why it fits:** Your question lines up with this product area on Microsoft Learn; this browse view lists official modules and paths you can filter further.`
-      : `2. **Why it fits:** It matches your interest (${userSnippet}) based on the catalog tags and level for this content.`;
+  const why = `2. Why it fits: It matches your interest (${userSnippet}) based on the catalog tags and level for this content.`;
 
   return [
-    `1. **Course or learning path:** [${chunk.title}](${chunk.url})`,
+    `1. Course or learning path: ${chunk.title} — ${chunk.url}`,
     why,
-    `3. **Estimated completion time:** ${chunk.duration}`,
+    `3. Estimated completion time: ${chunk.duration}`,
     nextLine,
     "",
     `Source: ${chunk.sourcePage}`,
@@ -180,10 +182,10 @@ function escalationSummary(message: string): string {
   return [
     "Escalation handoff (copy for support)",
     "",
-    `- **User goal:** ${message.slice(0, 200)}${message.length > 200 ? "…" : ""}`,
-    "- **Background:** Not enough structured signals after multiple clarification attempts (prototype guide).",
-    "- **Courses tried:** None confirmed from chat history in this session.",
-    "- **Blocker:** Need product area, experience level, and available time to match catalog entries safely.",
+    `- User goal: ${message.slice(0, 200)}${message.length > 200 ? "…" : ""}`,
+    "- Background: Not enough structured signals after multiple clarification attempts (prototype guide).",
+    "- Courses tried: None confirmed from chat history in this session.",
+    "- Blocker: Need product area, experience level, and available time to match catalog entries safely.",
     "",
     "Please continue on [Microsoft Learn](https://learn.microsoft.com/en-us/training/browse/) or ask a more specific training question.",
   ].join("\n");
@@ -201,8 +203,9 @@ export function processGuideTurn(
   const trimmed = userMessage.trim();
   if (!trimmed) {
     return {
-      assistantText:
+      assistantText: withSource(
         "I don't have enough to recommend confidently.\nCould you tell me what you want to learn and how much time you have?",
+      ),
       nextState: { ...state, consecutiveClarifications: state.consecutiveClarifications + 1 },
       kind: "clarify",
     };
@@ -211,7 +214,9 @@ export function processGuideTurn(
   const oos = detectOutOfScope(trimmed);
   if (oos) {
     return {
-      assistantText: `That's outside what I can help with here. For ${oos.type}, please visit ${oos.resource}. Can I help you find a learning path?`,
+      assistantText: withSource(
+        `That's outside what I can help with here. For ${oos.type}, please visit ${oos.resource}. Can I help you find a learning path?`,
+      ),
       nextState: { consecutiveClarifications: 0 },
       kind: "oos",
     };
@@ -224,22 +229,28 @@ export function processGuideTurn(
   if (!strongEnough) {
     if (state.consecutiveClarifications >= 3) {
       return {
-        assistantText: escalationSummary(trimmed),
+        assistantText: withSource(escalationSummary(trimmed)),
         nextState: { consecutiveClarifications: 0 },
         kind: "escalate",
       };
     }
     return {
-      assistantText: clarifyPrompt(trimmed),
+      assistantText: withSource(clarifyPrompt(trimmed)),
       nextState: { consecutiveClarifications: state.consecutiveClarifications + 1 },
       kind: "clarify",
     };
   }
 
   const snippet = tokenize(trimmed).slice(0, 6).join(", ") || "your goals";
-  const primary = best.chunk;
+  // Prefer course/learning path for the response header.
+  const primary =
+    ranked.find((r) => r.chunk.contentType === "Learning Path")?.chunk ??
+    ranked.find((r) => r.chunk.contentType === "Course")?.chunk ??
+    best.chunk;
+
   const nextId = primary.nextIds[0];
   const next = nextId ? getChunkById(nextId) ?? null : null;
+
   const altIds = new Set([primary.id, ...(next ? [next.id] : [])]);
   const alternatives = ranked
     .map((r) => r.chunk)

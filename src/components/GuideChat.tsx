@@ -139,9 +139,7 @@ export function GuideChat() {
               </div>
             </section>
           ) : null}
-          <p className="guide-source">
-            Source: {r.primary.sourcePage}
-          </p>
+          <div className="guide-md">{renderMarkdownLinks(msg.content)}</div>
         </div>
       );
     }

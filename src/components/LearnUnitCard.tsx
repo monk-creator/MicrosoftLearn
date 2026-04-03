@@ -78,7 +78,6 @@ export function LearnUnitCard({
           <IconOpen />
         </a>
       </h3>
-      <p className="unit-summary">{chunk.summary}</p>
       <div className="unit-tags">
         {chunk.products.map((p) => (
           <span key={p} className="unit-pill unit-pill--product">
