@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { getInitialGuideState, processGuideTurn, type RecommendationPayload } from "../lib/guideEngine";
 import type { GuideState } from "../lib/guideEngine";
 import type { LearnChunk } from "../types";
@@ -84,7 +91,7 @@ export function GuideChat() {
     setMessages((m) => [...m, userMsg, assistantMsg]);
   }, [input, guideState]);
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
+  const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
