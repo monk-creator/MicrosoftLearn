@@ -10,6 +10,7 @@ import { getInitialGuideState, processGuideTurn, type RecommendationPayload } fr
 import type { GuideState } from "../lib/guideEngine";
 import type { LearnChunk } from "../types";
 import { LearnUnitCard } from "./LearnUnitCard";
+import { askRemoteGuide } from "../lib/remoteGuide";
 
 type Role = "user" | "assistant";
 
@@ -68,6 +69,7 @@ export function GuideChat() {
     { id: "welcome", role: "assistant", content: WELCOME },
   ]);
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const [guideState, setGuideState] = useState<GuideState>(getInitialGuideState);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -75,21 +77,39 @@ export function GuideChat() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const send = useCallback(() => {
+  const send = useCallback(async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || isSending) return;
+    setIsSending(true);
     setInput("");
     const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: text };
-    const { assistantText, nextState, recommendation } = processGuideTurn(text, guideState);
-    setGuideState(nextState);
-    const assistantMsg: Message = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: assistantText,
-      recommendation,
-    };
-    setMessages((m) => [...m, userMsg, assistantMsg]);
-  }, [input, guideState]);
+    setMessages((m) => [...m, userMsg]);
+
+    try {
+      const remote = await askRemoteGuide(text, guideState);
+      setGuideState(remote.nextState);
+      const assistantMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: remote.assistantText,
+        recommendation: remote.recommendation,
+      };
+      setMessages((m) => [...m, assistantMsg]);
+    } catch {
+      // Fallback to local logic if remote API is unreachable.
+      const local = processGuideTurn(text, guideState);
+      setGuideState(local.nextState);
+      const assistantMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: local.assistantText,
+        recommendation: local.recommendation,
+      };
+      setMessages((m) => [...m, assistantMsg]);
+    } finally {
+      setIsSending(false);
+    }
+  }, [guideState, input, isSending]);
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -186,9 +206,10 @@ export function GuideChat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
+            disabled={isSending}
           />
-          <button type="button" className="guide-send" onClick={send}>
-            Send
+          <button type="button" className="guide-send" onClick={() => void send()} disabled={isSending}>
+            {isSending ? "Thinking..." : "Send"}
           </button>
         </div>
       </div>
