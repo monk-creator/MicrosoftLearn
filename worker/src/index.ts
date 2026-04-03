@@ -1,6 +1,7 @@
 type GuideState = { consecutiveClarifications: number };
 type GuideReply = { assistantText: string; nextState: GuideState; kind: "ok" | "clarify" | "oos" | "escalate" };
 type SearchHit = { title: string; url: string; description: string; score: number };
+type EvidenceChunk = { text: string; score: number };
 
 const SOURCE_HOME = "Microsoft Learn: Build with answers in reach";
 const TRAINING_BY_PRODUCT: Record<string, { title: string; url: string; time: string; nextTitle: string; nextUrl: string }> = {
@@ -102,6 +103,53 @@ function explainProductPlain(product: string) {
   if (product === "fabric") return "Microsoft Fabric is Microsoft's unified analytics platform for data engineering, data science, and business intelligence.";
   return "Microsoft Sentinel is Microsoft's cloud-native security operations platform for threat detection, investigation, and response.";
 }
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function chunkText(text: string, maxWords = 90): string[] {
+  const words = text.split(" ");
+  const chunks: string[] = [];
+  for (let i = 0; i < words.length; i += Math.floor(maxWords * 0.7)) {
+    const slice = words.slice(i, i + maxWords).join(" ").trim();
+    if (slice.length > 80) chunks.push(slice);
+    if (chunks.length >= 60) break;
+  }
+  return chunks;
+}
+
+function rankChunks(chunks: string[], query: string, product: string): EvidenceChunk[] {
+  const q = new Set(tokenize(query));
+  const p = new Set(tokenize(product));
+  const ranked: EvidenceChunk[] = [];
+  for (const c of chunks) {
+    const lc = c.toLowerCase();
+    let score = 0;
+    for (const t of q) if (lc.includes(t)) score += 1;
+    for (const t of p) if (lc.includes(t)) score += 2;
+    if (/\bwhat is\b|\boverview\b|\bintroduction\b/.test(lc)) score += 1;
+    if (score > 0) ranked.push({ text: c, score });
+  }
+  return ranked.sort((a, b) => b.score - a.score);
+}
+
+async function fetchEvidenceChunk(url: string, query: string, product: string): Promise<EvidenceChunk | null> {
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  const html = await r.text();
+  const cleaned = htmlToText(html);
+  const chunks = chunkText(cleaned);
+  const ranked = rankChunks(chunks, query, product);
+  return ranked[0] ?? null;
+}
 async function tryLearnSearch(query: string): Promise<SearchHit[]> {
   const u = `https://learn.microsoft.com/api/search?search=${encodeURIComponent(query)}&locale=en-us`;
   const r = await fetch(u, { headers: { accept: "application/json" } });
@@ -179,7 +227,16 @@ async function buildAnswer(message: string, state: GuideState): Promise<GuideRep
     return { kind: "clarify", nextState: { consecutiveClarifications: nextCount }, assistantText: withSource("I don't have enough to recommend confidently.\nCould you tell me how much time you can spend (for example 1 hour, half day, or several days)?", source.sourceName) };
   }
 
-  const explanation = explainProductPlain(product);
+  const fallbackExplanation = explainProductPlain(product);
+  let explanation = fallbackExplanation;
+  if (goal === "definition") {
+    const evidence = await fetchEvidenceChunk(source.sourceUrl, message, product);
+    if (evidence?.text) {
+      // Use retrieved chunk directly for stronger grounding.
+      explanation = evidence.text.slice(0, 420).trim();
+      if (!/[.!?]$/.test(explanation)) explanation += ".";
+    }
+  }
   const confidenceHint = source.confidence === "high" ? "" : source.confidence === "medium" ? " (matched from related Learn content)" : " (fallback source from product landing page)";
   const text = [
     `${product.toUpperCase()}: ${explanation}`,
