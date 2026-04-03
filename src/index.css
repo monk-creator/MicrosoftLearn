@@ -20,9 +20,6 @@ body {
 /* Visible before React replaces #root (production build removes dev-only /src script) */
 .boot-shell {
   font-family: system-ui, -apple-system, sans-serif;
-  padding: 2rem 1.5rem;
-  max-width: 40rem;
-  margin: 0 auto;
   color: #323130;
 }
 
