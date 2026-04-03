@@ -1,0 +1,28 @@
+.boot-error {
+  padding: 1.5rem;
+  max-width: 42rem;
+  margin: 0 auto;
+  font-family: system-ui, sans-serif;
+}
+
+.boot-error-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.boot-error-hint {
+  margin: 0 0 1rem;
+  color: #605e5c;
+  font-size: 0.9rem;
+}
+
+.boot-error-pre {
+  margin: 0;
+  padding: 1rem;
+  background: #f3f2f1;
+  border: 1px solid #e1dfdd;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+}

@@ -16,3 +16,32 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Visible before React replaces #root (production build removes dev-only /src script) */
+.boot-shell {
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 2rem 1.5rem;
+  max-width: 40rem;
+  margin: 0 auto;
+  color: #323130;
+}
+
+.boot-shell-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+.boot-shell-note {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #605e5c;
+}
+
+.boot-shell-note code {
+  font-size: 0.85em;
+  background: #f3f2f1;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+}

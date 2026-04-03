@@ -13,6 +13,18 @@
   </head>
   <body>
     <noscript>Turn on JavaScript to use this app.</noscript>
+    <!-- Outside #root so Vite’s build output always keeps this until JS runs -->
+    <div
+      id="boot-banner"
+      class="boot-shell"
+      style="font-family: system-ui, sans-serif; padding: 2rem 1.5rem; max-width: 40rem; margin: 0 auto; color: #323130"
+    >
+      <p class="boot-shell-title">Loading…</p>
+      <p class="boot-shell-note">
+        If this never goes away, scripts did not load. Deploy the <strong>dist</strong> output of
+        <code>npm run build</code>, not the Git repo source. Check DevTools → Console / Network.
+      </p>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
