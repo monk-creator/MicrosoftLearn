@@ -237,7 +237,7 @@ async function buildAnswer(message: string, state: GuideState): Promise<GuideRep
       if (!/[.!?]$/.test(explanation)) explanation += ".";
     }
   }
-  const confidenceHint = source.confidence === "high" ? "" : source.confidence === "medium" ? " (matched from related Learn content)" : " (fallback source from product landing page)";
+  // Do not add extra text after Source: because the UI expects the last line to be exactly `Source: ...`.
   const text = [
     `${product.toUpperCase()}: ${explanation}`,
     "",
@@ -246,7 +246,7 @@ async function buildAnswer(message: string, state: GuideState): Promise<GuideRep
     `3. Estimated completion time: ${train.time}`,
     `4. Suggested next step after this course: ${train.nextTitle} — ${train.nextUrl}`,
     "",
-    `Source: ${source.sourceName}${confidenceHint}`,
+    `Source: ${source.sourceName}`,
   ].join("\n");
   return { kind: "ok", nextState: { consecutiveClarifications: 0 }, assistantText: text };
 }

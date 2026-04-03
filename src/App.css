@@ -483,6 +483,10 @@
   color: #fff;
 }
 
+.guide-text {
+  white-space: pre-wrap;
+}
+
 /* --- Unit cards (training tile feel) --- */
 
 .unit-card {
