@@ -5,6 +5,8 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import "./index.css";
 import "./boot.css";
 
+console.info("AI Guide boot");
+
 const rootEl = document.getElementById("root");
 
 if (!rootEl) {
